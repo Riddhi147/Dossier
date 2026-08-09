@@ -1,0 +1,20 @@
+# Local development convenience: spins up a local Qdrant instance so you
+# don't need a Qdrant Cloud cluster while iterating. Not required for
+# production — Qdrant Cloud's free tier is recommended for deployment.
+#
+# Usage:
+#   docker compose up -d
+#   # then in backend/.env:
+#   #   QDRANT_URL=http://localhost:6333
+#   #   QDRANT_API_KEY=   (leave blank)
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+volumes:
+  qdrant_storage:
