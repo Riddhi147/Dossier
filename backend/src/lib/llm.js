@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama3-8b-8192";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export const llmEnabled = Boolean(GROQ_API_KEY);
@@ -20,31 +20,38 @@ if (!llmEnabled) {
   );
 }
 
-async function callLLM({ system, prompt, maxTokens = 1024 }) {
-  const res = await fetch(GROQ_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "authorization": `Bearer ${GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: prompt }
-      ],
-      response_format: { type: "json_object" }
-    }),
-  });
+async function callLLM({ system, prompt, maxTokens = 1024 }, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        max_tokens: maxTokens,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }
+      }),
+    });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Groq API error ${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      if (res.status === 429 && i < retries) {
+        console.warn(`[Groq] 429 Rate Limit hit. Retrying in 4 seconds...`);
+        await new Promise(r => setTimeout(r, 4000));
+        continue;
+      }
+      throw new Error(`Groq API error ${res.status}: ${text}`);
+    }
+
+    const data = await res.json();
+    return data.choices[0].message.content;
   }
-
-  const data = await res.json();
-  return data.choices[0].message.content;
 }
 
 function parseJSON(text) {
@@ -118,10 +125,10 @@ Respond with JSON exactly in this shape:
  */
 export async function generateNextQuestion({ role, seniority, difficulty, history }) {
   const transcript = history
-    .map(
-      (h, i) =>
-        `Q${i + 1} (${h.difficulty}): ${h.question}\nA${i + 1}: ${h.answer}\nScores: correctness=${h.evaluation.correctness}, depth=${h.evaluation.depth}, relevance=${h.evaluation.relevance}, communication=${h.evaluation.communication}, overall=${h.evaluation.overall}`
-    )
+    .map((h, i) => {
+      const shortAns = h.answer.length > 300 ? h.answer.substring(0, 300) + "..." : h.answer;
+      return `Q${i + 1} (${h.difficulty}): ${h.question}\nA${i + 1}: ${shortAns}\nScores: correctness=${h.evaluation.correctness}, depth=${h.evaluation.depth}, relevance=${h.evaluation.relevance}, communication=${h.evaluation.communication}, overall=${h.evaluation.overall}`;
+    })
     .join("\n\n");
 
   const last = history[history.length - 1];
@@ -159,10 +166,10 @@ Respond with JSON exactly in this shape:
  */
 export async function generateReport({ role, seniority, history, dims, overall }) {
   const transcript = history
-    .map(
-      (h, i) =>
-        `Q${i + 1}: ${h.question}\nA${i + 1}: ${h.answer}\nOverall score: ${h.evaluation.overall}/10`
-    )
+    .map((h, i) => {
+      const shortAns = h.answer.length > 400 ? h.answer.substring(0, 400) + "..." : h.answer;
+      return `Q${i + 1}: ${h.question}\nA${i + 1}: ${shortAns}\nOverall score: ${h.evaluation.overall}/10`;
+    })
     .join("\n\n");
 
   const prompt = `Role: ${role}

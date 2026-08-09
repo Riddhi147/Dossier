@@ -3,6 +3,7 @@ import { Clock, AlertCircle } from "lucide-react";
 import { T, RECOMMENDATION_COLOR } from "../theme.js";
 import { Logo, ScoreBar } from "./common.jsx";
 import { getReport } from "../lib/api.js";
+import RadarChart from "./RadarChart.jsx";
 
 const DIM_LABEL = {
   correctness: "Correctness",
@@ -192,19 +193,9 @@ export default function Report({ sessionId, sampleData, onRestart, isSample }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, marginBottom: 48 }}>
-          {/* Key scores */}
-          <div>
-            <div style={{ fontFamily: T.mono, fontSize: 11, color: T.stone, letterSpacing: 1.2, marginBottom: 18 }}>
-              KEY SCORES
-            </div>
-            {Object.entries(dims).map(([k, v]) => (
-              <ScoreBar key={k} label={DIM_LABEL[k]} value={v} color={DIM_COLOR[k]} />
-            ))}
-            {report.benchmark && (
-              <div style={{ marginTop: 14, fontFamily: T.sans, fontSize: 12, color: T.stone, lineHeight: 1.6 }}>
-                Peer average at {report.seniority} level: {report.benchmark.overall.toFixed(1)}/10
-              </div>
-            )}
+          {/* Radar Chart – visualizing the four core dimensions */}
+          <div style={{ display: "flex", justifyContent: "center", margin: "40px 0" }}>
+            <RadarChart data={dims} size={250} />
           </div>
 
           {/* Difficulty progression */}

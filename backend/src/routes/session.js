@@ -187,6 +187,20 @@ router.get("/:id/report", async (req, res) => {
     };
     const overall = (dims.correctness + dims.depth + dims.relevance + dims.communication) / 4;
 
+      const fillerWords = ["um", "uh", "like", "basically", "actually", "literally", "stuff", "so", "right", "okay"]; // Define filler words list
+      // Calculate total words and filler count across all answers
+      const allAnswers = session.history.map(h => h.answer).join(' ');
+      const words = allAnswers.toLowerCase().match(/\b\w+\b/g) || [];
+      const totalWordCount = words.length;
+      const fillerCount = words.filter(word => fillerWords.includes(word)).length;
+      const fillerPer100 = totalWordCount > 0 ? (fillerCount / totalWordCount) * 100 : 0;
+
+      // Derive strengths and weaknesses based on dimension scores
+      const dimEntries = Object.entries(dims);
+      const sortedDesc = [...dimEntries].sort((a, b) => b[1] - a[1]);
+      const strengths = sortedDesc.slice(0, 2).map(entry => entry[0]); // top 2 dimensions
+      const weaknesses = [sortedDesc[sortedDesc.length - 1][0]]; // weakest dimension (same as weakest_dimension)
+
     let aiReport;
     if (llm.llmEnabled) {
       aiReport = await llm.generateReport({
@@ -225,19 +239,29 @@ router.get("/:id/report", async (req, res) => {
       console.error("[qdrant.benchmarkForRole]", err);
     }
 
-    res.json({
-      sessionId: session.id,
-      role: session.role,
-      seniority: session.seniority,
-      durationSec: Math.floor((Date.now() - session.startedAt) / 1000),
-      questionsAnswered: session.history.length,
-      dims,
-      overall,
-      difficultyHistory: session.history.map((h) => h.difficulty),
-      transcript: session.history.map((h) => ({ question: h.question, answer: h.answer, overall: h.evaluation.overall })),
-      benchmark,
-      ...aiReport,
-    });
+      // Build final response JSON, merging AI report and additional metrics
+      const finalReport = {
+        ...aiReport,
+        strengths,
+        weaknesses,
+        fillerWordsPer100: Number(fillerPer100.toFixed(2)),
+      };
+
+      res.json({
+        sessionId: session.id,
+        role: session.role,
+        seniority: session.seniority,
+        durationSec: Math.floor((Date.now() - session.startedAt) / 1000),
+        questionsAnswered: session.history.length,
+        dims,
+        overall,
+        difficultyHistory: session.history.map((h) => h.difficulty),
+        transcript: session.history.map((h) => ({ question: h.question, answer: h.answer, overall: h.evaluation.overall, concept: h.concept || h.evaluation.concept })),
+        benchmark,
+        ...finalReport,
+      });
+      return;
+
   } catch (err) {
     console.error("[GET /api/sessions/:id/report]", err);
     res.status(500).json({ error: "Failed to build report", detail: String(err.message || err) });
