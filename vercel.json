@@ -1,11 +1,10 @@
 {
-
-  "outputDirectory": "frontend/dist",
+  "outputDirectory": "dist",
   "builds": [
     {
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "frontend/dist" }
+      "config": { "distDir": "dist" }
     },
     {
       "src": "backend/src/server.js",
@@ -23,7 +22,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/frontend/dist/$1"
+      "dest": "/dist/$1"
     }
   ]
 }
