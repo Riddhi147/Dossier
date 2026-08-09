@@ -7,7 +7,8 @@
     },
     {
       "src": "backend/src/server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "runtime": "nodejs18.x" }
     }
   ],
   "routes": [
@@ -22,10 +23,5 @@
       "src": "/(.*)",
       "dest": "/frontend/dist/$1"
     }
-  ],
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  ]
 }
