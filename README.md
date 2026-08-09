@@ -124,24 +124,3 @@ curl https://<your‑app>.vercel.app/api/health
 3. **Receive a report** – after the session you get a structured PDF‑style report with scores and actionable feedback.
 
 ---
-
-## 🤝 Contributing
-Contributions are welcome! Please:
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/awesome‑feature`).
-3. Ensure the app runs locally and all tests pass (`npm test` if you add tests).
-4. Open a Pull Request describing the change.
-
-### Code Style
-- Use **Prettier** for formatting (`npm run format`).
-- Follow the existing folder conventions.
-- Keep UI components small and reusable.
-
----
-
-## 📜 License
-This project is licensed under the **MIT License** – see the `LICENSE` file for details.
-
----
-
-*Built with love by the Riddhi147 team.*
