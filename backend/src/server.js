@@ -32,7 +32,7 @@ app.use((req, res) => res.status(404).json({ error: "Not found" }));
 app.listen(PORT, () => {
   console.log(`AI Interview Coach backend listening on :${PORT}`);
   console.log(
-    `  LLM (Claude): ${llmEnabled ? "enabled" : "DISABLED — demo mode"}\n` +
+    `  LLM (Groq): ${llmEnabled ? "enabled" : "DISABLED — demo mode"}\n` +
       `  Rime (voice): ${rimeEnabled ? "enabled" : "DISABLED — browser TTS fallback"}\n` +
       `  Qdrant (memory): ${qdrantEnabled ? "enabled" : "DISABLED — no persistence/benchmarking"}`
   );

@@ -82,7 +82,13 @@ export function useSpeechToText() {
       setInterim(interimStr);
     };
     recog.onend = () => setListening(false);
-    recog.onerror = () => setListening(false);
+    recog.onerror = (e) => {
+      console.error("Speech recognition error:", e.error);
+      if (e.error === "not-allowed") {
+        alert("Microphone access was denied. Please allow microphone permissions in your browser settings and try again.");
+      }
+      setListening(false);
+    };
     recogRef.current = recog;
     return () => {
       try {

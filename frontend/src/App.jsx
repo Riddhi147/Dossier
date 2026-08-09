@@ -16,7 +16,7 @@ export default function App() {
     getHealth()
       .then((h) => {
         const missing = [];
-        if (!h.llmEnabled) missing.push("Claude (question generation & scoring)");
+        if (!h.llmEnabled) missing.push("Groq (question generation & scoring)");
         if (!h.rimeEnabled) missing.push("Rime (falls back to browser voice)");
         if (!h.qdrantEnabled) missing.push("Qdrant (no persistent memory/benchmarking)");
         if (missing.length) {

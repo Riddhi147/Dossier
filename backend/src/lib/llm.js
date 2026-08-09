@@ -1,52 +1,50 @@
 // ---------------------------------------------------------------------------
-// Claude integration: question generation, answer evaluation, adaptive
+// Groq integration: question generation, answer evaluation, adaptive
 // follow-up routing, and final report synthesis.
 //
-// All calls go through a single `callClaude` helper against the public
-// Anthropic Messages API. Every prompt in this file asks for STRICT JSON
-// output so the rest of the backend can treat the LLM as a typed function.
+// All calls go through a single `callGroq` helper against the Groq API.
+// Every prompt in this file asks for STRICT JSON output so the rest of the
+// backend can treat the LLM as a typed function.
 // ---------------------------------------------------------------------------
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama3-8b-8192";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-export const llmEnabled = Boolean(ANTHROPIC_API_KEY);
+export const llmEnabled = Boolean(GROQ_API_KEY);
 
 if (!llmEnabled) {
   console.warn(
-    "[llm] ANTHROPIC_API_KEY not set — falling back to the static question bank " +
+    "[llm] GROQ_API_KEY not set — falling back to the static question bank " +
       "and a heuristic evaluator. Set the key to enable real adaptive interviewing."
   );
 }
 
-async function callClaude({ system, prompt, maxTokens = 1024 }) {
-  const res = await fetch(ANTHROPIC_URL, {
+async function callLLM({ system, prompt, maxTokens = 1024 }) {
+  const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "authorization": `Bearer ${GROQ_API_KEY}`
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model: GROQ_MODEL,
       max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
     }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Claude API error ${res.status}: ${text}`);
+    throw new Error(`Groq API error ${res.status}: ${text}`);
   }
 
   const data = await res.json();
-  const text = (data.content || [])
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
-  return text;
+  return data.choices[0].message.content;
 }
 
 function parseJSON(text) {
@@ -75,7 +73,7 @@ demonstrate real understanding within 1-2 minutes of spoken answer.
 Respond with JSON exactly in this shape:
 {"question": "...", "concept": "kebab-case-topic-tag", "difficulty": "beginner" | "intermediate" | "advanced"}`;
 
-  const raw = await callClaude({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 300 });
+  const raw = await callLLM({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 300 });
   return parseJSON(raw);
 }
 
@@ -107,7 +105,7 @@ Respond with JSON exactly in this shape:
   "concept": "kebab-case-tag"
 }`;
 
-  const raw = await callClaude({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 500 });
+  const raw = await callLLM({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 500 });
   const parsed = parseJSON(raw);
   const overall =
     (parsed.correctness + parsed.depth + parsed.relevance + parsed.communication) / 4;
@@ -152,7 +150,7 @@ candidate actually said when it makes the question sharper.
 Respond with JSON exactly in this shape:
 {"question": "...", "concept": "kebab-case-topic-tag", "difficulty": "beginner" | "intermediate" | "advanced", "is_followup": true | false}`;
 
-  const raw = await callClaude({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 350 });
+  const raw = await callLLM({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 350 });
   return parseJSON(raw);
 }
 
@@ -189,6 +187,6 @@ Respond with JSON exactly in this shape:
   "improvement_actions": ["...", "...", "..."]
 }`;
 
-  const raw = await callClaude({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 600 });
+  const raw = await callLLM({ system: INTERVIEWER_SYSTEM, prompt, maxTokens: 600 });
   return parseJSON(raw);
 }
