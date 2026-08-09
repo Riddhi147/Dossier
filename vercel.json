@@ -1,17 +1,5 @@
 {
   "outputDirectory": "frontend/dist",
-  "builds": [
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "frontend/dist" }
-    },
-    {
-      "src": "backend/src/server.js",
-      "use": "@vercel/node",
-      "config": { "runtime": "nodejs18.x" }
-    }
-  ],
   "routes": [
     {
       "src": "/api/(.*)",
@@ -19,7 +7,6 @@
     },
     {
       "handle": "filesystem"
-    },
-
+    }
   ]
 }
