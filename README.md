@@ -1,149 +1,147 @@
 # Dossier — AI Interview & Learning Coach
 
-A voice-first, adaptive AI interviewer: pick a role and seniority, get a
-15-minute clock-paced interview that adapts its next question to how well
-you just answered, then get a structured performance report — not a text
-blob. Flow is modeled on ApertureAI's interview experience; scoring model
-follows the original TDR (correctness / depth / relevance / communication).
+## 🎯 Overview
+The **AI Interview Coach** is a modern, voice‑first web application that lets anyone conduct a realistic, timed interview with an AI interviewer. It generates context‑aware questions, evaluates answers on correctness, depth, relevance and communication, and produces a structured performance report.
 
-```
-frontend/   React + Vite SPA — landing, setup, live interview, report
-backend/    Node + Express API — Claude for questions/eval/reports,
-            Rime for voice, Qdrant for memory/retrieval/benchmarking
-docker-compose.yml   local Qdrant for dev (optional — Qdrant Cloud works too)
-```
-
-## How the three required pieces are used
-
-| Service | Where | What it does |
-|---|---|---|
-| **Claude** (LLM) | `backend/src/lib/llm.js` | Generates each question, evaluates every answer on 4 dimensions, decides the next question's difficulty/depth, writes the closing report. |
-| **Rime** | `backend/src/lib/rime.js`, exposed via `POST /api/tts` | Turns interviewer questions into speech server-side (API key never touches the browser). |
-| **Qdrant** | `backend/src/lib/qdrant.js` | Stores every evaluated answer as a vector point (real conversation memory), retrieves similar past answers, and computes peer benchmarks per role/seniority for the report. |
-
-If any of the three API keys is missing, the backend runs in **demo mode**
-for that piece (static question bank instead of Claude, browser TTS instead
-of Rime, no persistence/benchmarking instead of Qdrant) so you can develop
-the UI incrementally — but a real submission/deployment should have all
-three configured.
+- **Frontend** – React + Vite SPA, premium UI with glass‑morphism, gradients, and micro‑animations.
+- **Backend** – Node 18 + Express API exposing health, session, and text‑to‑speech endpoints.
+- **AI services** – Groq for question generation/evaluation, Rime for server‑side TTS, and Qdrant vector store for memory/benchmarking.
+- **Deployment** – Zero‑config serverless deployment on Vercel (static files from `frontend/dist` and API routes served as serverless functions).
 
 ---
 
-## 1. Run it locally
+## 🏗️ Architecture
+```
++-------------------+        +----------------------+
+|  Frontend (React) |  <--►  |  Backend (Express)   |
+|  – Vite build     | HTTP   |  – /api/health       |
+|  – UI + Speech    |        |  – /api/sessions     |
++-------------------+        |  – LLM calls         |
+            |                +----------------------+
+            ▼                     ▲
+   Vercel Edge Platform           │
+   – Serves static files from    │
+     frontend/dist               │
+   – Routes /api/* to the       │
+     serverless function        │
+   – Handles scaling & CDN      │
+```
 
-### Backend
+## 📂 Repository Structure
+```
+interview-coach/
+├─ backend/               # Express API
+│   └─ src/
+│       ├─ server.js
+│       ├─ routes/
+│       └─ lib/ (llm, rime, qdrant)
+├─ frontend/              # React SPA
+│   └─ src/
+│       ├─ App.jsx
+│       ├─ components/
+│       └─ lib/ (api, speech)
+├─ docker-compose.yml     # Optional Qdrant container for local dev
+├─ vercel.json            # Vercel routing & output directory
+└─ README.md              # <-- this file
+```
 
+---
+
+## ⚙️ Getting Started (Local Development)
+### Prerequisites
+- Node ≥ 18
+- Docker (optional, for Qdrant)
+- Chrome (for SpeechRecognition)
+
+### 1️⃣ Backend
 ```bash
 cd backend
-cp .env.example .env     # fill in ANTHROPIC_API_KEY, RIME_API_KEY, QDRANT_URL/QDRANT_API_KEY
+cp .env.example .env   # Fill in your API keys
 npm install
-npm run dev               # http://localhost:8787
+npm run dev            # Starts at http://localhost:8787
 ```
-
-Don't have a Qdrant Cloud cluster yet? Run one locally instead:
-
+If you don’t have a Qdrant cloud instance, run a local one:
 ```bash
-docker compose up -d      # from the repo root
-# then in backend/.env:
-#   QDRANT_URL=http://localhost:6333
-#   QDRANT_API_KEY=        (leave blank)
+docker compose up -d   # from repository root
+# Then set in .env:
+# QDRANT_URL=http://localhost:6333
+# QDRANT_API_KEY=   (leave empty for local instance)
 ```
-
-### Frontend
-
+### 2️⃣ Frontend
 ```bash
-cd frontend
-cp .env.example .env      # VITE_API_BASE=http://localhost:8787
+cd ../frontend
+cp .env.example .env   # Set VITE_API_BASE=http://localhost:8787
 npm install
-npm run dev                # http://localhost:5173
+npm run dev            # Starts at http://localhost:5173
 ```
-
-Open `http://localhost:5173`, click **Start Practice**, and go through a
-session. Chrome is recommended — the browser mic input (`SpeechRecognition`)
-is Chrome-only; other browsers fall back to text mode automatically.
+Open the URL, click **Start Practice**, and enjoy a full interview flow. Chrome is recommended for microphone support.
 
 ---
 
-## 2. Get your API keys
-
-- **Anthropic (Claude):** console.anthropic.com → API Keys
-- **Rime:** app.rime.ai/signup → API Tokens page
-- **Qdrant:** cloud.qdrant.io → create a free cluster → copy its URL and API key
+## 🚀 Production Deployment (Vercel)
+1. **Push to GitHub** – the repo is already linked to Vercel.
+2. **Vercel Settings** – set **Root Directory** to `.` (project root). Vercel automatically detects the `frontend` workspace.
+3. **Environment Variables** – add the following in the Vercel dashboard:
+   - `GROQ_API_KEY` (or `ANTHROPIC_API_KEY` depending on the LLM you use)
+   - `RIME_API_KEY`
+   - `QDRANT_URL`
+   - `QDRANT_API_KEY`
+   - `CORS_ORIGIN` – the URL of your deployed frontend (e.g., `https://your-app.vercel.app`).
+4. **vercel.json** – the file already contains the minimal configuration:
+```json
+{
+  "outputDirectory": "frontend/dist",
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/backend/src/server.js" },
+    { "handle": "filesystem" }
+  ]
+}
+```
+   *No `builds` array is needed – Vercel will run `npm install && vite build` for the frontend automatically.*
+5. **Deploy** – Vercel will build the frontend, expose the API as a serverless function, and provide a preview URL. Test the health endpoint:
+```bash
+curl https://<your‑app>.vercel.app/api/health
+```
+   You should receive `{ "ok": true, ... }`.
 
 ---
 
-## 3. Deploy
-
-### Backend → Render / Railway / Fly.io (any Node host works)
-
-1. Push this repo to GitHub.
-2. Create a new **Web Service** pointed at the `backend/` directory
-   (or use the included `backend/Dockerfile`).
-3. Build command: `npm install` · Start command: `npm start`
-4. Set environment variables (same names as `backend/.env.example`):
-   `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `RIME_API_KEY`, `RIME_SPEAKER`,
-   `RIME_MODEL`, `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION`,
-   `CORS_ORIGIN` (set this to your deployed frontend's URL once you have it).
-5. Note the deployed backend URL, e.g. `https://dossier-api.onrender.com`.
-
-### Frontend → Vercel / Netlify
-
-1. Import the same repo, set the project root to `frontend/`.
-2. Build command: `npm run build` · Output directory: `dist`
-3. Set environment variable `VITE_API_BASE` to your deployed backend URL
-   from the step above.
-4. Deploy. Then go back to the backend's `CORS_ORIGIN` env var and set it
-   to this frontend's deployed URL, and redeploy the backend.
-
-That's it — no database to provision beyond Qdrant Cloud, which is already
-your vector store.
+## 🔑 Environment Variables
+| Variable | Scope | Description |
+|----------|-------|-------------|
+| `GROQ_API_KEY` | Backend | LLM API key (Claude/Groq). |
+| `RIME_API_KEY` | Backend | Text‑to‑speech service token. |
+| `QDRANT_URL` | Backend | URL of Qdrant vector store (cloud or `http://localhost:6333`). |
+| `QDRANT_API_KEY` | Backend | Qdrant auth token (optional for local). |
+| `CORS_ORIGIN` | Backend | Frontend origin allowed for CORS. |
+| `VITE_API_BASE` | Frontend | Base URL of the backend API (e.g., https://api.vercel.app). |
 
 ---
 
-## 4. Project structure
+## 📚 Usage
+1. **Select role & seniority** on the landing page.
+2. **Start interview** – you have a 15‑minute timer, the AI adapts questions based on your performance.
+3. **Receive a report** – after the session you get a structured PDF‑style report with scores and actionable feedback.
 
-```
-backend/
-  src/
-    server.js            Express app, health check, route mounting
-    routes/
-      session.js          POST /api/sessions            start a session
-                            POST /api/sessions/:id/answer  submit + adapt
-                            GET  /api/sessions/:id/report  structured report
-      tts.js               POST /api/tts                  Rime proxy
-    lib/
-      llm.js               Claude: questions, evaluation, adaptation, reports
-      rime.js              Rime TTS client
-      qdrant.js             Qdrant memory / retrieval / benchmarking
-      embed.js              local text embedding (swap point — see file)
-    data/
-      questionBank.js       static fallback content for demo mode
+---
 
-frontend/
-  src/
-    App.jsx                screen router
-    components/
-      Landing.jsx, Setup.jsx, LiveInterview.jsx, Report.jsx, common.jsx
-    lib/
-      api.js                backend client
-      speech.js             Rime-via-backend TTS + browser STT wrapper
-      sampleReport.js        static data for "View Sample Report"
-    theme.js                design tokens
-```
+## 🤝 Contributing
+Contributions are welcome! Please:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/awesome‑feature`).
+3. Ensure the app runs locally and all tests pass (`npm test` if you add tests).
+4. Open a Pull Request describing the change.
 
-## 5. Known swap points for a production version
+### Code Style
+- Use **Prettier** for formatting (`npm run format`).
+- Follow the existing folder conventions.
+- Keep UI components small and reusable.
 
-These are called out in code comments too:
+---
 
-- **`backend/src/lib/embed.js`** — currently a dependency-free hashing
-  embedding so Qdrant works with zero extra credentials. Swap for a real
-  embedding model (Voyage AI, OpenAI `text-embedding-3-small`, or Qdrant
-  Cloud's built-in inference) for materially better semantic retrieval.
-- **`frontend/src/lib/speech.js`** — STT uses the browser's
-  `SpeechRecognition` API (Chrome-only, no extra credentials needed). Swap
-  for a hosted streaming STT provider (Deepgram, AssemblyAI, Rime's own STT
-  if/when available) for cross-browser support and lower latency.
-- **Session storage** — `backend/src/routes/session.js` keeps sessions in
-  an in-process `Map`. Fine for a single instance / demo; swap for
-  Redis or Postgres before running multiple backend instances behind a
-  load balancer.
+## 📜 License
+This project is licensed under the **MIT License** – see the `LICENSE` file for details.
+
+---
+
+*Built with love by the Riddhi147 team.*
